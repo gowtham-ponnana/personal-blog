@@ -1,0 +1,17 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[context.production]
+  environment = { NODE_ENV = "production", VITE_API_URL = ".netlify/functions" }
+
+[context.deploy-preview]
+  environment = { NODE_ENV = "development", VITE_API_URL = "http://localhost:5000/api" }
+
+[context.branch-deploy]
+  environment = { NODE_ENV = "development", VITE_API_URL = "http://localhost:5000/api" }
