@@ -22,16 +22,13 @@ const app = express()
 const PORT = process.env.PORT || 5000
 
 // Security middleware
+// CSP and HSTS are disabled because this server only runs locally on
+// 127.0.0.1 and is never internet-facing. The previous CSP included
+// `upgrade-insecure-requests`, which broke asset loading on plain HTTP
+// localhost. The public site is served by GitHub Pages with its own headers.
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      scriptSrc: ["'self'", "https://cdnjs.cloudflare.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", 'data:', 'blob:'],
-    },
-  },
+  contentSecurityPolicy: false,
+  strictTransportSecurity: false,
 }))
 
 // CORS configuration
