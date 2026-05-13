@@ -52,6 +52,17 @@
     margin-top: 1.5rem;
     margin-bottom: 1.5rem;
   }
+
+  /* Render empty paragraphs as blank lines (TipTap emits <p></p> for blank
+     lines; without this they collapse to nothing). */
+  .prose p:empty,
+  #post-content p:empty {
+    min-height: 1em;
+  }
+  .prose p:empty::before,
+  #post-content p:empty::before {
+    content: '\00a0';
+  }
 }
 
 /* Custom scrollbar */

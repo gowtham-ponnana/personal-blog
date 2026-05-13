@@ -72,7 +72,11 @@ export default function RichTextEditor({ content, onChange }) {
     ],
     content: content || '',
     editorProps: {
-      handlePaste: async (view, event) => {
+      // NOTE: ProseMirror expects these handlers to return a synchronous
+      // boolean. Returning a Promise (async fn) is treated as truthy, which
+      // silently swallows non-image pastes/drops. Keep the function sync;
+      // fire image uploads asynchronously without awaiting.
+      handlePaste: (view, event) => {
         const items = event.clipboardData?.items
         if (!items) return false
 
@@ -80,38 +84,37 @@ export default function RichTextEditor({ content, onChange }) {
           if (item.type.startsWith('image/')) {
             event.preventDefault()
             const file = item.getAsFile()
-            const url = await uploadImage(file)
-            if (url) {
+            const insertPos = view.state.selection.from
+            uploadImage(file).then((url) => {
+              if (!url) return
               const { schema } = view.state
               const node = schema.nodes.image.create({ src: url })
-              const transaction = view.state.tr.insert(view.state.selection.from, node)
+              const transaction = view.state.tr.insert(insertPos, node)
               view.dispatch(transaction)
-            }
+            })
             return true
           }
         }
         return false
       },
-      handleDrop: async (view, event) => {
+      handleDrop: (view, event) => {
         const files = event.dataTransfer?.files
         if (!files || !files.length) return false
 
         for (const file of files) {
           if (file.type.startsWith('image/')) {
             event.preventDefault()
-            const url = await uploadImage(file)
-            if (url) {
+            const coordinates = view.posAtCoords({
+              left: event.clientX,
+              top: event.clientY,
+            })
+            uploadImage(file).then((url) => {
+              if (!url || !coordinates) return
               const { schema } = view.state
-              const coordinates = view.posAtCoords({
-                left: event.clientX,
-                top: event.clientY,
-              })
-              if (coordinates) {
-                const node = schema.nodes.image.create({ src: url })
-                const transaction = view.state.tr.insert(coordinates.pos, node)
-                view.dispatch(transaction)
-              }
-            }
+              const node = schema.nodes.image.create({ src: url })
+              const transaction = view.state.tr.insert(coordinates.pos, node)
+              view.dispatch(transaction)
+            })
             return true
           }
         }

@@ -277,7 +277,7 @@ export default function PostEditor() {
 
       {/* Preview Mode */}
       {previewMode ? (
-        <PreviewPanel content={content} excerpt={excerpt} coverImage={coverImageUrl} title={title} />
+        <PreviewPanel content={content} coverImage={coverImageUrl} title={title} />
       ) : (
         /* Form */
         <form onSubmit={(e) => handleSubmit(e, undefined)} className="space-y-6">
@@ -472,7 +472,7 @@ export default function PostEditor() {
 
 // --- Sub-components to keep main clean ---
 
-function PreviewPanel({ title, content, excerpt, coverImage }) {
+function PreviewPanel({ title, content, coverImage }) {
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       {/* Cover image */}
@@ -481,7 +481,9 @@ function PreviewPanel({ title, content, excerpt, coverImage }) {
       )}
 
       <div className="p-8">
-        {excerpt && <p className="text-gray-500 text-sm mb-4">{excerpt}</p>}
+        {/* Excerpt is intentionally NOT shown here — it only appears on the
+            home page listing, not on the opened post (and the preview should
+            match the opened-post view). */}
         <h1 className="font-serif text-3xl font-semibold mb-6">{title || 'Untitled'}</h1>
 
         {/* Rendered content */}
