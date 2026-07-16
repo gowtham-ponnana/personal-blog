@@ -2,6 +2,7 @@ import React from 'react'
 import { Outlet, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { LogOut, Home as HomeIcon, PlusCircle } from 'lucide-react'
+import ThemeToggle from '../ThemeToggle'
 
 export default function Layout() {
   const { user, logout } = useAuth()
@@ -47,6 +48,8 @@ export default function Layout() {
                 </button>
               </>
             )}
+
+            <ThemeToggle />
           </nav>
         </div>
       </header>

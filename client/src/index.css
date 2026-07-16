@@ -2,28 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ========================================
+   Theme tokens
+   Default (light) theme lives on :root.
+   The "cappuccino" theme (inspired by cryptoccino.xyz) overrides these
+   tokens when <html data-theme="cappuccino"> is set.
+   ======================================== */
+:root {
+  --bg: #ffffff;
+  --text: #333333;
+  --heading: #1a1a1a;
+  --muted: #6b7280;        /* gray-500/600 */
+  --border: #e5e7eb;       /* gray-200 */
+  --link: #2563eb;
+  --link-hover: #1e40af;
+  --hover-bg: #f3f4f6;     /* gray-100 */
+  --scroll-track: #f1f1f1;
+  --scroll-thumb: #c1c1c1;
+  --scroll-thumb-hover: #a1a1a1;
+}
+
+[data-theme="cappuccino"] {
+  --bg: #ede1cd;           /* cappuccino foam / cream */
+  --text: #4a3a2a;         /* warm coffee */
+  --heading: #3a2b1c;      /* dark espresso */
+  --muted: #8a7458;        /* muted mocha */
+  --border: #d8c6a8;       /* tan */
+  --link: #9a5a1c;         /* coffee accent */
+  --link-hover: #7d4713;
+  --hover-bg: #e0d0b3;
+  --scroll-track: #e2d4bb;
+  --scroll-thumb: #c3ab84;
+  --scroll-thumb-hover: #a98d63;
+}
+
 /* Custom fonts and styling matching notes.aref.vc */
 @layer base {
   html {
     @apply antialiased;
   }
-  
+
   body {
     font-family: 'JetBrains Mono', monospace;
     font-size: 17px;
     line-height: 1.6;
-    background-color: #ffffff;
-    color: #333333;
+    background-color: var(--bg);
+    color: var(--text);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-  
+
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Georgia', serif;
     font-size: 24px;
     line-height: 1.5;
     margin-bottom: 0.75em;
-    color: #1a1a1a;
+    color: var(--heading);
   }
   
   h1 {
@@ -72,16 +106,61 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--scroll-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: var(--scroll-thumb);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
+  background: var(--scroll-thumb-hover);
+}
+
+/* ========================================
+   Cappuccino theme overrides
+   The page components use hard-coded Tailwind color utilities, so we
+   remap them to theme tokens when the cappuccino theme is active. The
+   descendant selector [data-theme="cappuccino"] .util wins on specificity
+   (0,2,0 > 0,1,0), so no !important is needed.
+   ======================================== */
+[data-theme="cappuccino"] .bg-white { background-color: var(--bg); }
+
+[data-theme="cappuccino"] .text-gray-900 { color: var(--heading); }
+[data-theme="cappuccino"] .text-gray-700 { color: var(--text); }
+[data-theme="cappuccino"] .text-gray-600 { color: var(--muted); }
+[data-theme="cappuccino"] .text-gray-500 { color: var(--muted); }
+[data-theme="cappuccino"] .text-blue-600 { color: var(--link); }
+
+[data-theme="cappuccino"] .border-gray-200 { border-color: var(--border); }
+
+[data-theme="cappuccino"] .hover\:text-gray-900:hover { color: var(--heading); }
+[data-theme="cappuccino"] .hover\:text-gray-700:hover { color: var(--muted); }
+[data-theme="cappuccino"] .hover\:text-blue-800:hover { color: var(--link-hover); }
+[data-theme="cappuccino"] .hover\:bg-gray-100:hover { background-color: var(--hover-bg); }
+
+/* Post body (Tailwind Typography exposes CSS vars we can retint) */
+[data-theme="cappuccino"] .prose {
+  --tw-prose-body: var(--text);
+  --tw-prose-headings: var(--heading);
+  --tw-prose-links: var(--link);
+  --tw-prose-bold: var(--heading);
+  --tw-prose-quotes: var(--muted);
+  --tw-prose-quote-borders: var(--border);
+  --tw-prose-code: var(--heading);
+  --tw-prose-hr: var(--border);
+  --tw-prose-bullets: var(--muted);
+  --tw-prose-counters: var(--muted);
+}
+
+/* Smooth cross-fade when switching themes */
+body,
+.bg-white,
+header, footer,
+a, button, time, p, span,
+h1, h2, h3, h4, h5, h6 {
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
 }
 
 /* ========================================
