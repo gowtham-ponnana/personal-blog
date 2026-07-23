@@ -2,11 +2,13 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { viteStaticCopy } from 'vite-plugin-static-copy'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import sharp from 'sharp'
 import path from 'path'
 
 const SITE_URL = 'https://gowthamponnana.com'
 const SITE_NAME = "Gowtham's Blog"
-const DEFAULT_SOCIAL_IMAGE = `${SITE_URL}/signature.png`
+const SOCIAL_CARD_WIDTH = 1200
+const SOCIAL_CARD_HEIGHT = 630
 const SOCIAL_META_PATTERN = /<!-- social-meta:start -->[\s\S]*?<!-- social-meta:end -->/
 
 function escapeHtml(value) {
@@ -26,21 +28,123 @@ function plainText(value) {
     .trim()
 }
 
-function absoluteUrl(value) {
-  if (!value) return DEFAULT_SOCIAL_IMAGE
-  return new URL(value, `${SITE_URL}/`).href
+function wrapText(value, maximumCharacters, maximumLines) {
+  const words = plainText(value).split(' ').filter(Boolean)
+  const lines = []
+  let currentLine = ''
+  let truncated = false
+
+  for (let index = 0; index < words.length; index += 1) {
+    const candidate = currentLine ? `${currentLine} ${words[index]}` : words[index]
+
+    if (candidate.length <= maximumCharacters || !currentLine) {
+      currentLine = candidate
+      continue
+    }
+
+    lines.push(currentLine)
+    currentLine = words[index]
+
+    if (lines.length === maximumLines) {
+      truncated = true
+      break
+    }
+  }
+
+  if (currentLine && lines.length < maximumLines) {
+    lines.push(currentLine)
+  } else if (currentLine) {
+    truncated = true
+  }
+
+  if (truncated && lines.length > 0) {
+    lines[lines.length - 1] = `${lines[lines.length - 1]
+      .slice(0, maximumCharacters - 1)
+      .replace(/[.,;:!?]$/, '')}…`
+  }
+
+  return lines
 }
 
-function firstPostImage(post) {
-  const match = String(post.content || '').match(/<img\b[^>]*\bsrc=["']([^"']+)["']/i)
-  return absoluteUrl(post.coverImage || match?.[1])
+function renderSvgText(lines, { x, y, lineHeight, fontFamily, fontSize, fontWeight, fill }) {
+  const spans = lines
+    .map((line, index) => (
+      `<tspan x="${x}" y="${y + (index * lineHeight)}">${escapeHtml(line)}</tspan>`
+    ))
+    .join('')
+
+  return `<text font-family="${fontFamily}" font-size="${fontSize}" font-weight="${fontWeight}" fill="${fill}">${spans}</text>`
 }
 
-function renderSocialMeta({ title, description, url, image, type, publishedAt, updatedAt }) {
+function formatPostDate(value) {
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Invalid published post date: ${value}`)
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC'
+  }).format(date)
+}
+
+function renderSocialCard(post) {
+  const titleLines = wrapText(post.title, 39, 2)
+  const titleY = 100
+  const titleLineHeight = 62
+  const dateY = titleY + ((titleLines.length - 1) * titleLineHeight) + 70
+  const excerptY = dateY + 78
+  const excerptLines = wrapText(post.excerpt || post.content, 64, 5)
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${SOCIAL_CARD_WIDTH}" height="${SOCIAL_CARD_HEIGHT}" viewBox="0 0 ${SOCIAL_CARD_WIDTH} ${SOCIAL_CARD_HEIGHT}">
+    <rect width="100%" height="100%" fill="#ede1cd" />
+    ${renderSvgText(titleLines, {
+      x: 72,
+      y: titleY,
+      lineHeight: titleLineHeight,
+      fontFamily: 'Georgia, serif',
+      fontSize: 52,
+      fontWeight: 700,
+      fill: '#3a2b1c'
+    })}
+    <text x="72" y="${dateY}" font-family="monospace" font-size="23" font-weight="500" fill="#8a7458">${escapeHtml(formatPostDate(post.date))}</text>
+    ${renderSvgText(excerptLines, {
+      x: 72,
+      y: excerptY,
+      lineHeight: 42,
+      fontFamily: 'monospace',
+      fontSize: 27,
+      fontWeight: 400,
+      fill: '#8a7458'
+    })}
+  </svg>`
+}
+
+function renderSocialMeta({
+  title,
+  description,
+  url,
+  image,
+  type,
+  publishedAt,
+  updatedAt,
+  imageWidth,
+  imageHeight
+}) {
   const safeTitle = escapeHtml(title)
   const safeDescription = escapeHtml(description)
   const safeUrl = escapeHtml(url)
   const safeImage = escapeHtml(image)
+  const imageDetails = imageWidth && imageHeight
+    ? `
+    <meta property="og:image:secure_url" content="${safeImage}" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="${imageWidth}" />
+    <meta property="og:image:height" content="${imageHeight}" />`
+    : ''
   const articleMeta = type === 'article'
     ? `
     <meta property="article:published_time" content="${escapeHtml(publishedAt)}" />
@@ -56,8 +160,8 @@ function renderSocialMeta({ title, description, url, image, type, publishedAt, u
     <meta property="og:description" content="${safeDescription}" />
     <meta property="og:url" content="${safeUrl}" />
     <meta property="og:image" content="${safeImage}" />
-    <meta property="og:image:alt" content="${safeTitle}" />${articleMeta}
-    <meta name="twitter:card" content="${image === DEFAULT_SOCIAL_IMAGE ? 'summary' : 'summary_large_image'}" />
+    <meta property="og:image:alt" content="${safeTitle}" />${imageDetails}${articleMeta}
+    <meta name="twitter:card" content="${type === 'article' ? 'summary_large_image' : 'summary'}" />
     <meta name="twitter:title" content="${safeTitle}" />
     <meta name="twitter:description" content="${safeDescription}" />
     <meta name="twitter:image" content="${safeImage}" />
@@ -68,7 +172,7 @@ function socialPreviewPages() {
   return {
     name: 'social-preview-pages',
     apply: 'build',
-    closeBundle() {
+    async closeBundle() {
       if (process.env.VITE_BUILD_MODE !== 'public') return
 
       const distDirectory = path.resolve(__dirname, 'dist')
@@ -90,14 +194,26 @@ function socialPreviewPages() {
         const pageTitle = `${post.title} | ${SITE_NAME}`
         const description = plainText(post.excerpt || post.content)
         const pageUrl = `${SITE_URL}/post/${post.slug}`
+        const socialImagePath = path.join('social', `${post.slug}.png`)
+        const socialImageOutput = path.join(distDirectory, socialImagePath)
+        const imageVersion = new Date(post.updatedAt || post.date).getTime()
+        const socialImageUrl = `${SITE_URL}/${socialImagePath}?v=${imageVersion}`
+
+        mkdirSync(path.dirname(socialImageOutput), { recursive: true })
+        await sharp(Buffer.from(renderSocialCard(post)))
+          .png({ compressionLevel: 9, adaptiveFiltering: true })
+          .toFile(socialImageOutput)
+
         const socialMeta = renderSocialMeta({
           title: pageTitle,
           description,
           url: pageUrl,
-          image: firstPostImage(post),
+          image: socialImageUrl,
           type: 'article',
           publishedAt: post.date,
-          updatedAt: post.updatedAt
+          updatedAt: post.updatedAt,
+          imageWidth: SOCIAL_CARD_WIDTH,
+          imageHeight: SOCIAL_CARD_HEIGHT
         })
         const postHtml = indexHtml
           .replace(/<title>[\s\S]*?<\/title>/, `<title>${escapeHtml(pageTitle)}</title>`)
