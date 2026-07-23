@@ -1,13 +1,6 @@
 import React from 'react'
 
-// MailerLite embedded signup form.
-//
-// The account-level universal.js snippet lives in index.html; here we just
-// drop the form's target div. MailerLite's script watches the DOM and hydrates
-// any .ml-embedded node it finds, so this works fine with client-side routing.
-//
-// The form ID is public — it ships in the HTML either way — so we hard-code it.
-const FORM_ID = 'nv6hF7'
+const SIGNUP_URL = 'https://preview.mailerlite.io/forms/2527715/193781793885783523/share'
 
 export default function Newsletter() {
   return (
@@ -16,7 +9,14 @@ export default function Newsletter() {
       <p className="text-gray-600 leading-relaxed max-w-2xl mb-4">
         Get an email whenever I publish a new post. No spam — unsubscribe anytime.
       </p>
-      <div className="ml-embedded" data-form={FORM_ID}></div>
+      <a
+        href={SIGNUP_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center justify-center px-5 py-2.5 rounded-md bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
+      >
+        Subscribe by email
+      </a>
     </section>
   )
 }
