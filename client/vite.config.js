@@ -9,6 +9,7 @@ const SITE_URL = 'https://gowthamponnana.com'
 const SITE_NAME = "Gowtham's Blog"
 const SOCIAL_CARD_WIDTH = 1200
 const SOCIAL_CARD_HEIGHT = 630
+const SOCIAL_CARD_VERSION = 2
 const SOCIAL_META_PATTERN = /<!-- social-meta:start -->[\s\S]*?<!-- social-meta:end -->/
 
 function escapeHtml(value) {
@@ -127,7 +128,9 @@ function renderSocialMeta({
   title,
   description,
   url,
+  canonicalUrl,
   image,
+  imageType,
   type,
   publishedAt,
   updatedAt,
@@ -137,11 +140,12 @@ function renderSocialMeta({
   const safeTitle = escapeHtml(title)
   const safeDescription = escapeHtml(description)
   const safeUrl = escapeHtml(url)
+  const safeCanonicalUrl = escapeHtml(canonicalUrl || url)
   const safeImage = escapeHtml(image)
   const imageDetails = imageWidth && imageHeight
     ? `
     <meta property="og:image:secure_url" content="${safeImage}" />
-    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:type" content="${escapeHtml(imageType)}" />
     <meta property="og:image:width" content="${imageWidth}" />
     <meta property="og:image:height" content="${imageHeight}" />`
     : ''
@@ -153,7 +157,7 @@ function renderSocialMeta({
 
   return `<!-- social-meta:start -->
     <meta name="description" content="${safeDescription}" />
-    <link rel="canonical" href="${safeUrl}" />
+    <link rel="canonical" href="${safeCanonicalUrl}" />
     <meta property="og:type" content="${type}" />
     <meta property="og:site_name" content="${escapeHtml(SITE_NAME)}" />
     <meta property="og:title" content="${safeTitle}" />
@@ -165,6 +169,7 @@ function renderSocialMeta({
     <meta name="twitter:title" content="${safeTitle}" />
     <meta name="twitter:description" content="${safeDescription}" />
     <meta name="twitter:image" content="${safeImage}" />
+    <meta name="twitter:image:alt" content="${safeTitle}" />
     <!-- social-meta:end -->`
 }
 
@@ -194,21 +199,27 @@ function socialPreviewPages() {
         const pageTitle = `${post.title} | ${SITE_NAME}`
         const description = plainText(post.excerpt || post.content)
         const pageUrl = `${SITE_URL}/post/${post.slug}`
-        const socialImagePath = path.join('social', `${post.slug}.png`)
+        const socialUrl = `${pageUrl}?card=v${SOCIAL_CARD_VERSION}`
+        const socialImagePath = path.join(
+          'social',
+          `${post.slug}-v${SOCIAL_CARD_VERSION}.jpg`
+        )
         const socialImageOutput = path.join(distDirectory, socialImagePath)
-        const imageVersion = new Date(post.updatedAt || post.date).getTime()
-        const socialImageUrl = `${SITE_URL}/${socialImagePath}?v=${imageVersion}`
+        const socialImageUrl = `${SITE_URL}/${socialImagePath}`
 
         mkdirSync(path.dirname(socialImageOutput), { recursive: true })
         await sharp(Buffer.from(renderSocialCard(post)))
-          .png({ compressionLevel: 9, adaptiveFiltering: true })
+          .flatten({ background: '#ede1cd' })
+          .jpeg({ quality: 92, chromaSubsampling: '4:4:4' })
           .toFile(socialImageOutput)
 
         const socialMeta = renderSocialMeta({
           title: pageTitle,
           description,
-          url: pageUrl,
+          url: socialUrl,
+          canonicalUrl: pageUrl,
           image: socialImageUrl,
+          imageType: 'image/jpeg',
           type: 'article',
           publishedAt: post.date,
           updatedAt: post.updatedAt,
