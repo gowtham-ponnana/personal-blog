@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { fetchPost } from '../api/dataSource.js'
 import Prism from 'prismjs'
 import DOMPurify from 'dompurify'
+import Newsletter from '../components/Newsletter.jsx'
 
 export default function Post() {
   const { slug } = useParams()
@@ -98,6 +99,8 @@ export default function Post() {
           Gowtham Naidu Ponnana
         </p>
       </footer>
+
+      <Newsletter />
 
       {/* Back Link */}
       <nav className="mt-8 pt-4 border-t border-gray-200">
