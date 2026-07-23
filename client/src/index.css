@@ -17,6 +17,10 @@
   --link: #2563eb;
   --link-hover: #1e40af;
   --hover-bg: #f3f4f6;     /* gray-100 */
+  --field-bg: #ffffff;     /* inputs / textareas */
+  --field-border: #d1d5db; /* gray-300 */
+  --panel-bg: #f9fafb;     /* gray-50 toolbars / panels */
+  --focus: #3b82f6;        /* blue-500 */
   --scroll-track: #f1f1f1;
   --scroll-thumb: #c1c1c1;
   --scroll-thumb-hover: #a1a1a1;
@@ -31,6 +35,10 @@
   --link: #9a5a1c;         /* coffee accent */
   --link-hover: #7d4713;
   --hover-bg: #e0d0b3;
+  --field-bg: #f6f0e4;     /* lighter cream so inputs read as writable */
+  --field-border: #c9b48f; /* warm tan outline */
+  --panel-bg: #e6d9c1;     /* toolbar / panel surface */
+  --focus: #9a5a1c;        /* coffee focus */
   --scroll-track: #e2d4bb;
   --scroll-thumb: #c3ab84;
   --scroll-thumb-hover: #a98d63;
@@ -154,11 +162,45 @@
   --tw-prose-counters: var(--muted);
 }
 
+/* Form controls — inputs/textareas have no bg utility, so they'd otherwise
+   fall back to the browser's default white. Retint them to warm surfaces. */
+[data-theme="cappuccino"] input,
+[data-theme="cappuccino"] textarea,
+[data-theme="cappuccino"] select {
+  background-color: var(--field-bg);
+  color: var(--text);
+  border-color: var(--field-border);
+}
+[data-theme="cappuccino"] input::placeholder,
+[data-theme="cappuccino"] textarea::placeholder {
+  color: var(--muted);
+}
+
+[data-theme="cappuccino"] .border-gray-300 { border-color: var(--field-border); }
+[data-theme="cappuccino"] .bg-gray-50 { background-color: var(--panel-bg); }
+[data-theme="cappuccino"] .bg-gray-300 { background-color: var(--border); }
+[data-theme="cappuccino"] .hover\:bg-gray-50:hover { background-color: var(--hover-bg); }
+[data-theme="cappuccino"] .focus\:border-blue-500:focus { border-color: var(--focus); }
+[data-theme="cappuccino"] .focus\:ring-blue-500:focus { --tw-ring-color: var(--focus); }
+
+/* Rich-text editor surface */
+[data-theme="cappuccino"] .ProseMirror { color: var(--text); }
+[data-theme="cappuccino"] .ProseMirror pre {
+  background: var(--panel-bg);
+  border-color: var(--field-border);
+}
+[data-theme="cappuccino"] .ProseMirror code:not(pre code) { background: var(--panel-bg); }
+[data-theme="cappuccino"] .ProseMirror blockquote {
+  border-left-color: var(--field-border);
+  color: var(--muted);
+}
+
 /* Smooth cross-fade when switching themes */
 body,
 .bg-white,
 header, footer,
 a, button, time, p, span,
+input, textarea, select,
 h1, h2, h3, h4, h5, h6 {
   transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
 }
