@@ -198,7 +198,7 @@ function socialPreviewPages() {
 
         const pageTitle = `${post.title} | ${SITE_NAME}`
         const description = plainText(post.excerpt || post.content)
-        const pageUrl = `${SITE_URL}/post/${post.slug}`
+        const pageUrl = `${SITE_URL}/post/${post.slug}/`
         const socialUrl = `${pageUrl}?card=v${SOCIAL_CARD_VERSION}`
         const socialImagePath = path.join(
           'social',
