@@ -46,7 +46,7 @@ export default function Home() {
           {posts.map((post) => (
             <article key={post._id || post.slug} className="border-b border-gray-200 pb-8 last:border-0">
               <Link to={`/post/${post.slug}`}>
-                <h2 className="font-serif text-3xl font-semibold mb-2 hover:text-gray-700 transition-colors cursor-pointer">
+                <h2 className="font-serif text-2xl font-medium mb-2 hover:text-gray-700 transition-colors cursor-pointer">
                   {post.title}
                 </h2>
                 <time className="text-sm text-gray-500 mb-3 block">
