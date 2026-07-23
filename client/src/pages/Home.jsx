@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchPosts } from '../api/dataSource.js'
+import Newsletter from '../components/Newsletter.jsx'
 
 export default function Home() {
   const [posts, setPosts] = useState([])
@@ -66,6 +67,8 @@ export default function Home() {
           ))}
         </div>
       )}
+
+      <Newsletter />
     </div>
   )
 }
