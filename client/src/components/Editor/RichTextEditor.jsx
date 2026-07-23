@@ -8,6 +8,43 @@ import api from '../../api/client.js'
 // Max file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 
+/**
+ * Split any <br>-separated lines inside a <p> into standalone paragraph blocks.
+ *
+ * Block-level formatting (headings, quotes, etc.) applies to a whole block. If
+ * several visual "lines" live inside one <p> joined by <br>, toggling a heading
+ * on one line converts the entire block. Turning each line into its own <p>
+ * makes them individually formattable. Renders identically (empty <p> keeps the
+ * blank line via the CSS in index.css) and is idempotent — content with no <br>
+ * is returned unchanged.
+ */
+export function normalizeLineBreaks(html) {
+  if (!html || typeof window === 'undefined' || !/<br/i.test(html)) return html
+
+  const doc = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html')
+
+  doc.body.querySelectorAll('p').forEach((p) => {
+    if (!p.querySelector('br')) return
+
+    // Group the paragraph's child nodes into segments split at each <br>.
+    const segments = [[]]
+    p.childNodes.forEach((node) => {
+      if (node.nodeName === 'BR') segments.push([])
+      else segments[segments.length - 1].push(node)
+    })
+
+    const frag = doc.createDocumentFragment()
+    segments.forEach((nodes) => {
+      const np = doc.createElement('p')
+      nodes.forEach((n) => np.appendChild(n)) // moves node out of the old <p>
+      frag.appendChild(np)
+    })
+    p.replaceWith(frag)
+  })
+
+  return doc.body.innerHTML
+}
+
 export default function RichTextEditor({ content, onChange }) {
   const [uploadError, setUploadError] = useState('')
 
@@ -70,8 +107,11 @@ export default function RichTextEditor({ content, onChange }) {
         },
       }),
     ],
-    content: content || '',
+    content: normalizeLineBreaks(content || ''),
     editorProps: {
+      // Pasted HTML often uses <br> to separate lines; split them into real
+      // paragraphs so each pasted line stays independently formattable.
+      transformPastedHTML: (html) => normalizeLineBreaks(html),
       // NOTE: ProseMirror expects these handlers to return a synchronous
       // boolean. Returning a Promise (async fn) is treated as truthy, which
       // silently swallows non-image pastes/drops. Keep the function sync;
@@ -128,10 +168,14 @@ export default function RichTextEditor({ content, onChange }) {
     },
   })
 
-  // Sync external content changes into the editor
+  // Sync external content changes into the editor. Normalize <br>-joined lines
+  // into paragraphs, and only reset when the editor is NOT focused so live
+  // typing (which triggers onChange -> content) never resets the cursor.
   useEffect(() => {
-    if (editor && content !== undefined && editor.getHTML() !== content) {
-      editor.commands.setContent(content || '')
+    if (!editor || content === undefined) return
+    const normalized = normalizeLineBreaks(content || '')
+    if (!editor.isFocused && editor.getHTML() !== normalized) {
+      editor.commands.setContent(normalized)
     }
   }, [content, editor])
 
