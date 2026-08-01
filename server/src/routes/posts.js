@@ -335,6 +335,10 @@ router.put('/:slug', jwt.authenticateToken, async (req, res) => {
         commitMessage = null
       } else {
         // (d) Was draft, becomes published — remove from drafts, add to posts.
+        // `date` is the PUBLISHED date, not the draft-creation date: stamp it now.
+        // Clear updatedAt so a fresh publish isn't also reported as an edit.
+        updated.date = new Date().toISOString()
+        updated.updatedAt = null
         drafts.splice(draftIndex, 1)
         publishedPosts.push(updated)
         saveDrafts(drafts)
