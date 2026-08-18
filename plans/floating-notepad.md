@@ -82,3 +82,12 @@ now resizable:
 Verified with a 13-check Playwright E2E (default size, grip position/cursor,
 grow drag, viewport clamp, min clamp, persistence, double-click reset, note
 persistence regression, public pages unaffected).
+
+## Fix (v3): panel stays open while working
+
+The original "click outside to close" behavior closed the notepad the moment
+the user clicked back into the editor to write — annoying during writing.
+The outside-click close was **removed**: the panel now stays open until the
+user closes it explicitly via the **X button**, the **FAB toggle**, or
+**Escape**. Verified with E2E: clicking and typing in the Tiptap editor with
+the panel open no longer closes it.

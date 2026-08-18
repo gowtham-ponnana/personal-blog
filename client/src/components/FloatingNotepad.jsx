@@ -55,7 +55,6 @@ export default function FloatingNotepad() {
   const [text, setText] = useState('')
   const [loaded, setLoaded] = useState(false)
   const [size, setSize] = useState(loadSize)
-  const rootRef = useRef(null)
   const saveTimer = useRef(null)
   const sizeRef = useRef(size)
   useEffect(() => {
@@ -90,21 +89,16 @@ export default function FloatingNotepad() {
     return () => clearTimeout(saveTimer.current)
   }, [title, text, loaded])
 
-  // Close on Escape or outside click while open.
+  // Close on Escape while open. No outside-click close on purpose: the
+  // panel stays open until the user closes it explicitly (X button, the
+  // FAB, or Escape) so it can sit alongside the editor while writing.
   useEffect(() => {
     if (!open) return
     const onKeyDown = (e) => {
       if (e.key === 'Escape') setOpen(false)
     }
-    const onMouseDown = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false)
-    }
     document.addEventListener('keydown', onKeyDown)
-    document.addEventListener('mousedown', onMouseDown)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-      document.removeEventListener('mousedown', onMouseDown)
-    }
+    return () => document.removeEventListener('keydown', onKeyDown)
   }, [open])
 
   const startResize = (e) => {
@@ -146,7 +140,7 @@ export default function FloatingNotepad() {
   }
 
   return (
-    <div ref={rootRef}>
+    <div>
       {/* Notepad panel */}
       {open && (
         <div
