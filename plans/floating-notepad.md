@@ -61,3 +61,24 @@ post content. Keep it simple, clean, and local-only.
 - [ ] `Esc` and outside-click both close the panel.
 - [ ] Looks correct in both light and dark themes.
 - [ ] Public pages (`/`, `/post/:slug`) show no icon and no panel.
+
+## Extension (v2): resizable panel
+
+The fixed 340×360 panel was too small to read comfortably, so the panel is
+now resizable:
+
+- A drag grip (SVG diagonal lines, `role="separator"`, `cursor: nwse-resize`,
+  `touch-action: none`) sits in the panel's **top-left corner** — the natural
+  grow direction since the panel is pinned bottom-right.
+- Pointer-dragging the grip outward (left/up) grows the panel; clamped to
+  min **260×220** and to the viewport (max ≈ `innerWidth − 40` ×
+  `innerHeight − 112`). Double-clicking the grip resets to the default
+  **340×360**.
+- The chosen size persists to `localStorage` under `justdictate:notes:size`
+  (separate from the note content key) and restores on next load.
+- Text selection is disabled on the page while dragging; pointer listeners
+  are removed on `pointerup`/`pointercancel`.
+
+Verified with a 13-check Playwright E2E (default size, grip position/cursor,
+grow drag, viewport clamp, min clamp, persistence, double-click reset, note
+persistence regression, public pages unaffected).
