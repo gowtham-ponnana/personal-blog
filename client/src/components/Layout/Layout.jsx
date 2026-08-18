@@ -1,12 +1,15 @@
 import React from 'react'
-import { Outlet, Link, useNavigate } from 'react-router-dom'
+import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { LogOut, Home as HomeIcon, PlusCircle } from 'lucide-react'
 import ThemeToggle from '../ThemeToggle'
+import FloatingNotepad from '../FloatingNotepad'
 
 export default function Layout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const isAdmin = location.pathname.startsWith('/admin')
 
   const handleLogout = async () => {
     await logout()
@@ -67,6 +70,9 @@ export default function Layout() {
           <p>&copy; 2026 Gowtham Ponnana. All rights reserved.</p>
         </div>
       </footer>
+
+      {/* Floating notepad — admin pages only (Dashboard + PostEditor) */}
+      {isAdmin && <FloatingNotepad />}
     </div>
   )
 }
