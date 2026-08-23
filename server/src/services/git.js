@@ -44,8 +44,35 @@ async function commitAndPush(message) {
     throw new Error('commitAndPush: message must be a non-empty string')
   }
 
-  // 1. Stage content/
-  await git(['add', 'content/'])
+  // 1. Stage content/, minus images that are not public yet.
+  //
+  //    `git add content/` would sweep in every file under content/images/,
+  //    including pictures pasted into an unpublished draft — drafts.json is
+  //    gitignored, but the images it points at are not, so an unrelated commit
+  //    would push them to the public repo. Stage only the images a published
+  //    post or a live share snapshot actually references, and drop any
+  //    already-tracked image that is no longer public.
+  const { publicImageNames } = await import('../../../scripts/public-assets.mjs')
+  const publicImages = publicImageNames(REPO_ROOT)
+
+  await git(['add', 'content/posts.json', 'content/newsletter-sent.json', 'content/shared/'])
+
+  for (const name of publicImages) {
+    // -f because content/images/ is gitignored precisely so that only
+    // this loop can stage images.
+    await git(['add', '-f', `content/images/${name}`])
+  }
+
+  // Untrack images that used to be public but no longer are (post deleted,
+  // share revoked) and images a previous blanket `git add` swept in. The file
+  // stays on disk so local drafts keep rendering.
+  const { stdout: trackedOut } = await git(['ls-files', 'content/images/'])
+  for (const tracked of trackedOut.split('\n').filter(Boolean)) {
+    const name = path.posix.basename(tracked)
+    if (!publicImages.has(name)) {
+      await git(['rm', '--cached', '--quiet', '--ignore-unmatch', tracked])
+    }
+  }
 
   // 2. Detect if anything is staged.
   //    `git diff --staged --quiet` exits 0 when there are NO staged changes,

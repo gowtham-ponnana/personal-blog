@@ -38,9 +38,18 @@ Share an unpublished (or published) post with a private link:
 - No true one-time view counting (static hosting has no state) — use a short
   expiry instead.
 - Link is live after the GH Pages deploy (~1 min), not instantly.
-- Share snapshots (draft content) live in git history until revoked; the repo
-  is private, and revocation removes the file from HEAD (history rewrite is a
-  separate manual step if ever needed).
+- Share snapshots (draft content) live in git history until revoked, and
+  revocation only removes the file from HEAD (history rewrite is a separate
+  manual step).
+
+> **The repo is currently public.** This design was written assuming a private
+> repo, where an unguessable token was the only thing standing between a draft
+> and the world. On a public repo that assumption no longer holds: anyone can
+> browse `content/shared/` on github.com and read both the token filename and
+> the draft body directly, without ever guessing the URL. Until the repo is
+> private again, treat a share link as public. Images are unaffected —
+> `scripts/public-assets.mjs` keeps draft images out of both the repo and the
+> deployed site.
 
 ## Local env
 

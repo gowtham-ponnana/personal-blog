@@ -1,0 +1,73 @@
+// Single source of truth for "which images are allowed to be public".
+//
+// Images are uploaded into content/images/ while writing, before anyone knows
+// whether the post will be published. Two places therefore need the same
+// answer to "is this image public yet?":
+//
+//   - server/src/services/git.js — what gets committed to the public repo
+//   - client/vite.config.js      — what gets deployed to the live site
+//
+// An image is public only if a published post or a live share snapshot
+// actually references it. Draft-only images stay on disk, untracked and
+// undeployed.
+//
+// The check is a substring test against the serialised JSON rather than a URL
+// regex on purpose: filenames are unique enough (img-<ms>-<rand>.jpg) that a
+// substring match cannot collide, and it cannot be defeated by an image being
+// referenced through some markup or field shape we did not anticipate. Missing
+// a reference would silently break a published post, so the test errs towards
+// including an image.
+
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import path from 'node:path'
+
+function readJson(file) {
+  if (!existsSync(file)) return null
+  try {
+    return JSON.parse(readFileSync(file, 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Everything that is already public, serialised into one haystack string:
+ * published posts, plus every live (non-revoked) share snapshot.
+ */
+function publicContentHaystack(repoRoot) {
+  const parts = []
+
+  const posts = readJson(path.join(repoRoot, 'content/posts.json'))
+  if (Array.isArray(posts)) {
+    parts.push(JSON.stringify(posts.filter((post) => post.published === true)))
+  }
+
+  // Share snapshots are deliberately included: a shared draft still has to
+  // render its images for the private link to work. Revoking a share deletes
+  // the snapshot, which drops its images back out of the public set.
+  const sharedDir = path.join(repoRoot, 'content/shared')
+  if (existsSync(sharedDir)) {
+    for (const file of readdirSync(sharedDir).filter((f) => f.endsWith('.json'))) {
+      parts.push(readFileSync(path.join(sharedDir, file), 'utf8'))
+    }
+  }
+
+  return parts.join('\n')
+}
+
+/**
+ * Filenames under content/images/ that are safe to publish.
+ * Returns a Set of bare filenames, e.g. "img-1777128653662-511995580.jpg".
+ */
+export function publicImageNames(repoRoot) {
+  const imagesDir = path.join(repoRoot, 'content/images')
+  if (!existsSync(imagesDir)) return new Set()
+
+  const haystack = publicContentHaystack(repoRoot)
+
+  return new Set(
+    readdirSync(imagesDir).filter(
+      (name) => !name.startsWith('.') && haystack.includes(name)
+    )
+  )
+}

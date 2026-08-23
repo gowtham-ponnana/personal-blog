@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { viteStaticCopy } from 'vite-plugin-static-copy'
+import { publicImageNames } from '../scripts/public-assets.mjs'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import sharp from 'sharp'
 import path from 'path'
@@ -238,6 +238,28 @@ function socialPreviewPages() {
   }
 }
 
+function copyPublicImages() {
+  // Copies only images referenced by published posts or live share snapshots
+  // into dist/images. content/images/ also holds pictures pasted into drafts
+  // that are not public yet; copying the directory wholesale would serve those
+  // from the live site.
+  return {
+    name: 'copy-public-images',
+    apply: 'build',
+    closeBundle() {
+      const repoRoot = path.resolve(__dirname, '..')
+      const srcDir = path.join(repoRoot, 'content/images')
+      const destDir = path.resolve(__dirname, 'dist/images')
+      const allowed = publicImageNames(repoRoot)
+      if (allowed.size === 0) return
+      mkdirSync(destDir, { recursive: true })
+      for (const file of allowed) {
+        copyFileSync(path.join(srcDir, file), path.join(destDir, file))
+      }
+    },
+  }
+}
+
 function copySharedSnapshots() {
   // Copies content/shared/*.json (private share-link snapshots) into dist/shared.
   // Skips silently when no snapshots exist, so the build never fails on an
@@ -253,7 +275,7 @@ function copySharedSnapshots() {
       if (files.length === 0) return
       mkdirSync(destDir, { recursive: true })
       for (const file of files) {
-        fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file))
+        copyFileSync(path.join(srcDir, file), path.join(destDir, file))
       }
     },
   }
@@ -262,11 +284,7 @@ function copySharedSnapshots() {
 export default defineConfig({
   plugins: [
     react(),
-    viteStaticCopy({
-      targets: [
-        { src: '../content/images/*', dest: 'images' }
-      ]
-    }),
+    copyPublicImages(),
     socialPreviewPages(),
     copySharedSnapshots()
   ],
