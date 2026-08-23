@@ -1,7 +1,7 @@
 # Private Share Links (GitHub-only, no Cloudflare)
 
 Share an unpublished (or published) post with a private link:
-`https://gowthamponnana.com/s#<22-char-token>`
+`https://gowthamponnana.com/s/#<22-char-token>`
 
 ## How it works
 
@@ -14,7 +14,7 @@ share token is a decryption key, and the committed file is an opaque blob.
   128-bit token, writes `content/shared/<fileId>.json`, then `commitAndPush`.
   The Pages build copies `content/shared/*.json` → `dist/shared/`, so the link
   goes live with the next deploy (~1 min).
-- **View**: the public SPA route `/s` reads the token from the URL fragment,
+- **View**: the public SPA route `/s/` reads the token from the URL fragment,
   re-derives `fileId`, fetches the static blob, and decrypts it in the browser
   with WebCrypto. Renders inside the normal site chrome with a "Private preview
   — unpublished post" banner. No login, no backend.
@@ -63,7 +63,7 @@ three photos makes a ~500 KB blob, and that blob is a git object forever.
 | `client/src/lib/share-crypto.js` | Reader-side counterpart (WebCrypto). **Must stay byte-compatible** |
 | `server/src/routes/shares.js` | Admin CRUD: `POST /api/shares`, `GET /api/shares?slug=`, `DELETE /api/shares/:token` (JWT-protected); image inlining |
 | `server/src/index.js` | Mounts `/api/shares`; serves `content/shared/` at `/shared` for local dev |
-| `client/src/pages/SharedPost.jsx` | Public viewer for `/s#<token>` |
+| `client/src/pages/SharedPost.jsx` | Public viewer for `/s/#<token>` |
 | `client/src/pages/PostEditor.jsx` | Share modal (expiry picker, link + copy, active-links list with Revoke) |
 | `client/vite.config.js` | Copies `content/shared/*.json` → `dist/shared/`; dev proxy `/shared` → localhost:5001 |
 | `content/shared/` | Committed encrypted blobs (one per link) |

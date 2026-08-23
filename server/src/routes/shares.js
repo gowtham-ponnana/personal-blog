@@ -38,9 +38,11 @@ function siteBase() {
 }
 
 // The token goes in the fragment, so it is never sent to GitHub's servers in a
-// request line and never appears in a Referer header.
+// request line and never appears in a Referer header. The trailing slash is the
+// canonical path: Pages 301s /s to /s/, and skipping that hop avoids relying on
+// the fragment surviving a redirect.
 function shareUrl(token) {
-  return `${siteBase()}/s#${token}`
+  return `${siteBase()}/s/#${token}`
 }
 
 // 128-bit URL-safe random token — the link IS the secret (unguessable).

@@ -4,7 +4,7 @@ import DOMPurify from 'dompurify'
 import Prism from 'prismjs'
 import { deriveFileId, decryptSnapshot } from '../lib/share-crypto'
 
-// Renders a private share link: /s#<token>
+// Renders a private share link: /s/#<token>
 //
 // The repo this site is built from is public, so the committed snapshot is an
 // encrypted blob named after a one-way hash of the token — see
