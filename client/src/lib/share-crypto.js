@@ -4,11 +4,18 @@
 // The share token arrives in the URL fragment and never leaves the browser:
 // it is turned into the public filename to fetch, and into the AES-256-GCM key
 // that decrypts what comes back. Everything here needs a secure context, which
-// the live site has (HTTPS is enforced on Pages).
+// the live site has (HTTPS is enforced on Pages).//
+// Two envelope versions exist in the wild. They are cryptographically identical
+// — v2 only adds the plaintext `exp` — so both are readable, and we always
+// write the current one. A v1 blob therefore keeps working; it just cannot be
+// time-pruned by CI, which has no `exp` to read. Its sealed expiry still gates
+// rendering, the publish rule still ends it, and the admin server still prunes
+// it locally from the index.
 
 const ID_PREFIX = 'sharefile:v1:'
 const KEY_PREFIX = 'sharekey:v1:'
 const ENVELOPE_VERSION = 2
+const READABLE_VERSIONS = new Set([1, 2])
 
 async function sha256Bytes(text) {
   const digest = await crypto.subtle.digest(
@@ -47,7 +54,7 @@ export async function deriveFileId(token) {
  * authenticates, so a bad token fails loudly rather than yielding garbage.
  */
 export async function decryptSnapshot(token, envelope) {
-  if (!envelope || envelope.v !== ENVELOPE_VERSION) {
+  if (!envelope || !READABLE_VERSIONS.has(envelope.v)) {
     throw new Error(`Unsupported share envelope version: ${envelope && envelope.v}`)
   }
 

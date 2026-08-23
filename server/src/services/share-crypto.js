@@ -29,11 +29,18 @@ const crypto = require('crypto')
 //
 // The sealed copy stays authoritative for rendering: it is authenticated, so it
 // cannot be edited to extend a link's life, whereas `exp` is unauthenticated
-// and only ever decides when a file gets pruned.
+// and only ever decides when a file gets pruned.//
+// Two envelope versions exist in the wild. They are cryptographically identical
+// — v2 only adds the plaintext `exp` — so both are readable, and we always
+// write the current one. A v1 blob therefore keeps working; it just cannot be
+// time-pruned by CI, which has no `exp` to read. Its sealed expiry still gates
+// rendering, the publish rule still ends it, and the admin server still prunes
+// it locally from the index.
 
 const ID_PREFIX = 'sharefile:v1:'
 const KEY_PREFIX = 'sharekey:v1:'
 const ENVELOPE_VERSION = 2
+const READABLE_VERSIONS = new Set([1, 2])
 
 function sha256(text) {
   return crypto.createHash('sha256').update(text, 'utf8').digest()
@@ -76,7 +83,7 @@ function encryptSnapshot(token, payload) {
  * implementation. Throws if the token is wrong or the blob was tampered with.
  */
 function decryptSnapshot(token, envelope) {
-  if (!envelope || envelope.v !== ENVELOPE_VERSION) {
+  if (!envelope || !READABLE_VERSIONS.has(envelope.v)) {
     throw new Error(`Unsupported share envelope version: ${envelope && envelope.v}`)
   }
 

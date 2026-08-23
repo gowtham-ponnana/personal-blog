@@ -74,7 +74,16 @@ token and therefore does not yield the key. What is committed is only
 GCM authenticates, so a wrong token or an edited blob fails loudly instead of
 rendering anything.
 
-**2. The token lives in the URL fragment.** Browsers never send a fragment in a
+**2. Commit messages never name the post.** Sharing a draft commits to a public
+repo, so `Share: <slug>` in the log would announce an unpublished draft's title
+to anyone reading the commit list — defeating the encryption from the outside.
+Share and revoke commits say only `chore(shares): add a private link` /
+`revoke a private link`. The diff still shows which hashed blob changed, and
+`content/shares-index.json` maps that back to a post locally. (`Publish:`,
+`Update:` and `Delete:` may name a post — those only ever run for content that
+is already public.)
+
+**3. The token lives in the URL fragment.** Browsers never send a fragment in a
 request line, so the token stays out of GitHub's request logs and out of
 `Referer` headers when the reader clicks a link inside the draft.
 
@@ -128,6 +137,14 @@ and deleting a blob by hand always works.
   That is fine as long as the token was never committed anywhere — it is not.
 - Bumping the derivation prefixes in `share-crypto.js` invalidates every
   existing link, which is why they carry a `v1` tag.
+- Envelopes are written at v2 but v1 is still readable — the two are
+  cryptographically identical, v2 only adds the plaintext `exp`. A v1 blob
+  cannot be time-pruned by CI (no `exp` to read); its sealed expiry still gates
+  rendering, publication still ends it, and the admin server still prunes it
+  from the index locally.
+- **Restart the admin server after changing share code.** It is a long-running
+  local process, so it keeps serving the code it booted with — that is how a v1
+  envelope came to be written after v2 shipped.
 - Blob size is dominated by inlined images (see above).
 
 ## Local env

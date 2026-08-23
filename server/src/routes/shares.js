@@ -141,7 +141,12 @@ router.post('/', jwt.authenticateToken, async (req, res) => {
       { token, fileId, slug: post.slug, title: post.title, sharedAt, expiresAt },
     ])
 
-    await commitAndPush(`Share: ${post.slug}`)
+    // Deliberately says nothing about which post. This commit lands in a public
+    // repo, and naming the slug here would announce an unpublished draft's title
+    // in the commit log — undoing the encryption one line above it. The diff
+    // already shows which hashed blob changed, and content/shares-index.json
+    // maps that back to a post locally.
+    await commitAndPush('chore(shares): add a private link')
 
     res.status(201).json({ token, url: shareUrl(token), expiresAt })
   } catch (error) {
@@ -193,7 +198,7 @@ router.delete('/:token', jwt.authenticateToken, async (req, res) => {
     store.deleteBlob(fileId)
     store.writeIndex(store.readIndex().filter((candidate) => candidate.token !== token))
 
-    await commitAndPush(`Revoke share: ${entry ? entry.slug : fileId}`)
+    await commitAndPush('chore(shares): revoke a private link')
 
     res.json({ message: 'Share link revoked' })
   } catch (error) {
