@@ -29,7 +29,7 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
-    "build:public": "VITE_BUILD_MODE=public vite build && cp dist/index.html dist/404.html",
+    "build:public": "VITE_BUILD_MODE=public vite build && cp dist/index.html dist/404.html && mkdir -p dist/s && cp dist/index.html dist/s/index.html",
     "build:admin": "VITE_BUILD_MODE=admin vite build && rm -rf dist/gowtham-admin && cp dist/index.html dist/404.html",
     "preview": "vite preview"
   }
