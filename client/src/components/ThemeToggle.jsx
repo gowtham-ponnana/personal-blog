@@ -1,11 +1,23 @@
 import React from 'react'
-import { Coffee, Sun } from 'lucide-react'
-import { useTheme } from '../hooks/useTheme'
+import { Coffee, Sun, Moon } from 'lucide-react'
+import { useTheme, THEME_LABELS } from '../hooks/useTheme'
+
+const ICONS = {
+  default: Sun,
+  cappuccino: Coffee,
+  dark: Moon,
+}
 
 export default function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme()
-  const isCappuccino = theme === 'cappuccino'
-  const label = isCappuccino ? 'Switch to default theme' : 'Switch to cappuccino theme'
+  const { theme, nextTheme, toggleTheme } = useTheme()
+
+  // With two themes the icon could show the destination and stay unambiguous.
+  // With three it cannot, so the icon shows the theme you are *in* and the
+  // label says where the next press goes.
+  const Icon = ICONS[theme] || Sun
+  const label = `Theme: ${THEME_LABELS[theme] || theme}. Switch to ${
+    THEME_LABELS[nextTheme] || nextTheme
+  }.`
 
   return (
     <button
@@ -14,7 +26,7 @@ export default function ThemeToggle() {
       title={label}
       className="p-2 rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
     >
-      {isCappuccino ? <Sun size={18} /> : <Coffee size={18} />}
+      <Icon size={18} />
     </button>
   )
 }

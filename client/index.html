@@ -2,15 +2,29 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- Apply the saved theme before paint to avoid a flash of the wrong theme -->
+    <!-- Apply the saved theme before paint to avoid a flash of the wrong theme.
+         This must resolve to the same value as getInitialTheme() in
+         src/hooks/useTheme.js — including the prefers-color-scheme fallback,
+         or a dark-preferring visitor gets a white flash before React boots. -->
     <script>
       (function () {
-        try {
-          var t = localStorage.getItem('theme');
-          if (t) document.documentElement.setAttribute('data-theme', t);
-        } catch (e) {}
+        var THEMES = ['default', 'cappuccino', 'dark'];
+        var t = null;
+        try { t = localStorage.getItem('theme'); } catch (e) {}
+        if (THEMES.indexOf(t) === -1) {
+          t = 'default';
+          try {
+            if (window.matchMedia &&
+                window.matchMedia('(prefers-color-scheme: dark)').matches) {
+              t = 'dark';
+            }
+          } catch (e) {}
+        }
+        document.documentElement.setAttribute('data-theme', t);
       })();
     </script>
+    <!-- Kept in sync with the active theme's --bg by useTheme. -->
+    <meta name="theme-color" content="#ffffff" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gowtham's Blog</title>
