@@ -27,6 +27,9 @@ export default function PostEditor() {
   // Preview mode
   const [previewMode, setPreviewMode] = useState(false)
 
+  // Share (private link) modal
+  const [shareModalOpen, setShareModalOpen] = useState(false)
+
   // Track original published state when editing (to decide which buttons to show)
   const originallyPublishedRef = useRef(false)
 
@@ -258,6 +261,17 @@ export default function PostEditor() {
               {previewMode ? 'Edit' : 'Preview'}
             </button>
           )}
+
+          {/* Share draft — private one-time link (drafts only) */}
+          {isEditing && published === false && (
+            <button
+              type="button"
+              onClick={() => setShareModalOpen(true)}
+              className="px-3 py-1.5 text-xs rounded-md font-medium bg-blue-600 text-white hover:bg-blue-500 transition-colors"
+            >
+              🔗 Share
+            </button>
+          )}
         </div>
       </header>
 
@@ -466,6 +480,11 @@ export default function PostEditor() {
           </div>
         </form>
       )}
+
+      {/* Share modal for drafts */}
+      {shareModalOpen && isEditing && (
+        <ShareModal slug={slug} title={title || 'Untitled draft'} onClose={() => setShareModalOpen(false)} />
+      )}
     </div>
   )
 }
@@ -524,5 +543,172 @@ function DeleteButton({ slug, onDeleted, loading }) {
     >
       Delete
     </button>
+  )
+}
+
+// --- Share modal: create / list / revoke private share links for a draft ---
+
+const EXPIRY_OPTIONS = [
+  { value: 24, label: '24 hours' },
+  { value: 72, label: '3 days' },
+  { value: 168, label: '7 days' },
+  { value: 0, label: 'No expiry' },
+]
+function ShareModal({ slug, title, onClose }) {
+  const [expiresInHours, setExpiresInHours] = useState(72)
+  const [shares, setShares] = useState([])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [newLink, setNewLink] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  const loadShares = async () => {
+    try {
+      const res = await api.get('/shares', { params: { slug } })
+      setShares(res.data.shares || [])
+    } catch (err) {
+      console.error('Failed to load shares:', err)
+    }
+  }
+
+  useEffect(() => {
+    loadShares()
+  }, [slug])
+
+  const handleGenerate = async (e) => {
+    e.preventDefault()
+    setBusy(true)
+    setError('')
+    setNewLink('')
+    try {
+      const res = await api.post('/shares', { slug, expiresInHours })
+      setNewLink(res.data.url)
+      await loadShares()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to create share link')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleRevoke = async (token) => {
+    if (!window.confirm('Revoke this share link? Anyone holding it will lose access.')) return
+    try {
+      await api.delete(`/shares/${token}`)
+      setNewLink((prev) => (prev.includes(token) ? '' : prev))
+      await loadShares()
+    } catch (err) {
+      console.error('Revoke error:', err)
+    }
+  }
+
+  const handleCopy = async () => {
+    if (!newLink) return
+    try {
+      await navigator.clipboard.writeText(newLink)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // clipboard unavailable — user can select manually
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold">Share draft privately</h2>
+            <p className="text-xs text-gray-500 truncate max-w-xs">{title}</p>
+          </div>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">
+            ×
+          </button>
+        </div>
+
+        <p className="text-xs text-gray-500 mb-4">
+          Creates a private link (unguessable token) that works even though the post isn't
+          published. It shows a “Private preview” banner and is not listed on the blog.
+          The link shares the SAVED version of the draft. It goes live after the next site deploy (~1 min).
+        </p>
+
+        <form onSubmit={handleGenerate} className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Link expires in</label>
+            <select
+              value={expiresInHours}
+              onChange={(e) => setExpiresInHours(Number(e.target.value))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+            >
+              {EXPIRY_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            disabled={busy}
+            className={`w-full px-4 py-2.5 rounded-md font-medium text-sm transition-colors ${
+              busy ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-500'
+            }`}
+          >
+            {busy ? 'Generating…' : 'Generate link'}
+          </button>
+        </form>
+
+        {error && (
+          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
+
+        {newLink && (
+          <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+            <p className="text-xs font-medium text-green-800 mb-1">Share link (live after next deploy, ~1 min):</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-xs break-all text-gray-800 bg-white border border-gray-200 rounded px-2 py-1.5 select-all">
+                {newLink}
+              </code>
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="px-3 py-1.5 text-xs font-medium bg-white border border-gray-300 rounded-md hover:bg-gray-50 shrink-0"
+              >
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Existing share links */}
+        {shares.length > 0 && (
+          <div className="mt-4">
+            <p className="text-xs font-medium text-gray-600 mb-2">Active links</p>
+            <ul className="space-y-2 max-h-48 overflow-y-auto">
+              {shares.map((s) => (
+                <li key={s.token} className="flex items-center gap-2 text-xs border border-gray-200 rounded-md px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-gray-700 truncate">{s.url}</p>
+                    <p className="text-gray-400">
+                      {s.expiresAt
+                        ? `expires ${new Date(s.expiresAt).toLocaleString()}`
+                        : 'no expiry'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRevoke(s.token)}
+                    className="text-red-500 hover:text-red-700 font-medium shrink-0"
+                  >
+                    Revoke
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

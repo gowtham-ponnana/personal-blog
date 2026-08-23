@@ -6,6 +6,7 @@ import Layout from './components/Layout/Layout'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import Post from './pages/Post'
+import SharedPost from './pages/SharedPost'
 import Dashboard from './pages/Dashboard'
 import PostEditor from './pages/PostEditor'
 import AdminRedirect from './components/AdminRedirect'
@@ -26,6 +27,7 @@ function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="post/:slug" element={<Post />} />
+          <Route path="s/:token" element={<SharedPost />} />
         </Route>
 
         {/* Admin routes — require authentication. Only mounted in admin build. */}

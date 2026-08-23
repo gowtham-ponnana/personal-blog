@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { viteStaticCopy } from 'vite-plugin-static-copy'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import sharp from 'sharp'
 import path from 'path'
 
@@ -238,6 +238,27 @@ function socialPreviewPages() {
   }
 }
 
+function copySharedSnapshots() {
+  // Copies content/shared/*.json (private share-link snapshots) into dist/shared.
+  // Skips silently when no snapshots exist, so the build never fails on an
+  // empty directory.
+  return {
+    name: 'copy-shared-snapshots',
+    apply: 'build',
+    closeBundle() {
+      const srcDir = path.resolve(__dirname, '../content/shared')
+      const destDir = path.resolve(__dirname, 'dist/shared')
+      if (!existsSync(srcDir)) return
+      const files = readdirSync(srcDir).filter((f) => f.endsWith('.json'))
+      if (files.length === 0) return
+      mkdirSync(destDir, { recursive: true })
+      for (const file of files) {
+        fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file))
+      }
+    },
+  }
+}
+
 export default defineConfig({
   plugins: [
     react(),
@@ -246,7 +267,8 @@ export default defineConfig({
         { src: '../content/images/*', dest: 'images' }
       ]
     }),
-    socialPreviewPages()
+    socialPreviewPages(),
+    copySharedSnapshots()
   ],
   resolve: {
     alias: {
@@ -262,6 +284,10 @@ export default defineConfig({
         changeOrigin: true
       },
       '/images': {
+        target: 'http://localhost:5001',
+        changeOrigin: true
+      },
+      '/shared': {
         target: 'http://localhost:5001',
         changeOrigin: true
       }

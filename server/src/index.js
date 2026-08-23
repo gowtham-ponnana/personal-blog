@@ -17,6 +17,7 @@ try {
 const authRoutes = require('./routes/auth')
 const postRoutes = require('./routes/posts')
 const uploadRoutes = require('./routes/upload')
+const shareRoutes = require('./routes/shares')
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -48,10 +49,15 @@ app.use(cookieParser())
 // Static files for images (sourced from repo-root content/images)
 app.use('/images', express.static(path.join(__dirname, '../../content/images')))
 
+// Static files for share-link snapshots (dev convenience; in production
+// GitHub Pages serves dist/shared/ directly from the build).
+app.use('/shared', express.static(path.join(__dirname, '../../content/shared')))
+
 // API routes
 app.use('/api/auth', authRoutes)
 app.use('/api/posts', postRoutes)
 app.use('/api/upload', uploadRoutes)
+app.use('/api/shares', shareRoutes)
 
 // Health check endpoint
 app.get('/health', (req, res) => {
