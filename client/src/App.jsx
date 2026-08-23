@@ -27,6 +27,10 @@ function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="post/:slug" element={<Post />} />
+          {/* Private share links. The token lives in the fragment (/s#<token>)
+              so it never reaches GitHub's servers; /s/:token is kept so links
+              handed out before that change still resolve. */}
+          <Route path="s" element={<SharedPost />} />
           <Route path="s/:token" element={<SharedPost />} />
         </Route>
 

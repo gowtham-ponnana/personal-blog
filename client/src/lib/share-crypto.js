@@ -1,0 +1,64 @@
+// Crypto for private share links, reader side. Byte-compatible counterpart of
+// server/src/services/share-crypto.js — read the comment there for the design.
+//
+// The share token arrives in the URL fragment and never leaves the browser:
+// it is turned into the public filename to fetch, and into the AES-256-GCM key
+// that decrypts what comes back. Everything here needs a secure context, which
+// the live site has (HTTPS is enforced on Pages).
+
+const ID_PREFIX = 'sharefile:v1:'
+const KEY_PREFIX = 'sharekey:v1:'
+const ENVELOPE_VERSION = 1
+
+async function sha256Bytes(text) {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(text)
+  )
+  return new Uint8Array(digest)
+}
+
+function toBase64Url(bytes) {
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+function fromBase64(value) {
+  const binary = atob(value)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+  return bytes
+}
+
+/** Public filename for a token — must match the server's deriveFileId. */
+export async function deriveFileId(token) {
+  return toBase64Url(await sha256Bytes(ID_PREFIX + token))
+}
+
+/**
+ * Decrypt a committed envelope back into the snapshot object.
+ * Throws if the token is wrong or the blob was tampered with — GCM
+ * authenticates, so a bad token fails loudly rather than yielding garbage.
+ */
+export async function decryptSnapshot(token, envelope) {
+  if (!envelope || envelope.v !== ENVELOPE_VERSION) {
+    throw new Error(`Unsupported share envelope version: ${envelope && envelope.v}`)
+  }
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    await sha256Bytes(KEY_PREFIX + token),
+    'AES-GCM',
+    false,
+    ['decrypt']
+  )
+
+  const plaintext = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: fromBase64(envelope.iv) },
+    key,
+    fromBase64(envelope.ct)
+  )
+
+  return JSON.parse(new TextDecoder().decode(plaintext))
+}

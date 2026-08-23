@@ -1,14 +1,25 @@
 import React, { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useLocation, Link } from 'react-router-dom'
 import DOMPurify from 'dompurify'
 import Prism from 'prismjs'
+import { deriveFileId, decryptSnapshot } from '../lib/share-crypto'
 
-// Renders a private share link: /s/:token
-// Fetches the git-committed snapshot at /shared/<token>.json (static file
-// served by GitHub Pages). No backend involved — privacy comes from the
-// unguessable token, expiry is checked client-side.
+// Renders a private share link: /s#<token>
+//
+// The repo this site is built from is public, so the committed snapshot is an
+// encrypted blob named after a one-way hash of the token — see
+// client/src/lib/share-crypto.js. The token itself only ever exists in the URL
+// fragment, which browsers do not send to the server, so it stays out of
+// GitHub's request logs and out of Referer headers.
+//
+// Everything below runs in the reader's browser: derive the filename, fetch the
+// blob, decrypt, check expiry. No backend involved.
 export default function SharedPost() {
-  const { token } = useParams()
+  // Legacy /s/:token links still resolve; new links put the token in the hash.
+  const { token: pathToken } = useParams()
+  const { hash } = useLocation()
+  const token = pathToken || decodeURIComponent(hash.replace(/^#/, ''))
+
   const [post, setPost] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -19,8 +30,14 @@ export default function SharedPost() {
   }, [token])
 
   const loadSharedPost = async () => {
+    if (!token) {
+      setError('This share link is incomplete.')
+      setLoading(false)
+      return
+    }
+
     try {
-      const res = await fetch(`/shared/${token}.json`)
+      const res = await fetch(`/shared/${await deriveFileId(token)}.json`)
       if (res.status === 404) {
         setError('This share link is invalid or was revoked.')
         return
@@ -28,7 +45,11 @@ export default function SharedPost() {
       if (!res.ok) {
         throw new Error(`Failed to load: ${res.status}`)
       }
-      const data = await res.json()
+
+      // A wrong or truncated token fails here rather than rendering anything:
+      // AES-GCM authenticates, so tampering and bad keys both throw.
+      const data = await decryptSnapshot(token, await res.json())
+
       if (data.expiresAt && new Date(data.expiresAt).getTime() < Date.now()) {
         setExpired(true)
         return
@@ -51,7 +72,7 @@ export default function SharedPost() {
     sanitized = sanitized.replace(/href="([^"]*?)"/g, (match, href) => {
       if (href.startsWith('#') || href.startsWith('/')) return match
       if (!/^https?:\/\//i.test(href)) href = 'https://' + href
-      return `<a href="${href}" target="_blank" rel="noopener noreferrer">`
+      return `href="${href}" target="_blank" rel="noopener noreferrer"`
     })
     return sanitized
   }

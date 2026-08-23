@@ -7,9 +7,13 @@
 //   - server/src/services/git.js — what gets committed to the public repo
 //   - client/vite.config.js      — what gets deployed to the live site
 //
-// An image is public only if a published post or a live share snapshot
-// actually references it. Draft-only images stay on disk, untracked and
-// undeployed.
+// An image is public only if a published post references it. Draft-only images
+// stay on disk, untracked and undeployed.
+//
+// Share links deliberately do not widen this set. A shared draft's pictures are
+// inlined into its encrypted snapshot as data URIs (see
+// server/src/routes/shares.js), precisely so that sharing a draft never has the
+// side effect of publishing its images.
 //
 // The check is a substring test against the serialised JSON rather than a URL
 // regex on purpose: filenames are unique enough (img-<ms>-<rand>.jpg) that a
@@ -31,31 +35,6 @@ function readJson(file) {
 }
 
 /**
- * Everything that is already public, serialised into one haystack string:
- * published posts, plus every live (non-revoked) share snapshot.
- */
-function publicContentHaystack(repoRoot) {
-  const parts = []
-
-  const posts = readJson(path.join(repoRoot, 'content/posts.json'))
-  if (Array.isArray(posts)) {
-    parts.push(JSON.stringify(posts.filter((post) => post.published === true)))
-  }
-
-  // Share snapshots are deliberately included: a shared draft still has to
-  // render its images for the private link to work. Revoking a share deletes
-  // the snapshot, which drops its images back out of the public set.
-  const sharedDir = path.join(repoRoot, 'content/shared')
-  if (existsSync(sharedDir)) {
-    for (const file of readdirSync(sharedDir).filter((f) => f.endsWith('.json'))) {
-      parts.push(readFileSync(path.join(sharedDir, file), 'utf8'))
-    }
-  }
-
-  return parts.join('\n')
-}
-
-/**
  * Filenames under content/images/ that are safe to publish.
  * Returns a Set of bare filenames, e.g. "img-1777128653662-511995580.jpg".
  */
@@ -63,7 +42,10 @@ export function publicImageNames(repoRoot) {
   const imagesDir = path.join(repoRoot, 'content/images')
   if (!existsSync(imagesDir)) return new Set()
 
-  const haystack = publicContentHaystack(repoRoot)
+  const posts = readJson(path.join(repoRoot, 'content/posts.json'))
+  if (!Array.isArray(posts)) return new Set()
+
+  const haystack = JSON.stringify(posts.filter((post) => post.published === true))
 
   return new Set(
     readdirSync(imagesDir).filter(

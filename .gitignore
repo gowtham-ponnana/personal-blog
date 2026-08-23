@@ -7,6 +7,10 @@ client/dist/
 # Local-only drafts — never publish work-in-progress
 content/drafts.json
 
+# Which share token unlocks which committed blob. Local admin state, like the
+# drafts above — committing it would hand over the keys to every share link.
+content/shares-index.json
+
 # Images are staged explicitly by the publish flow (scripts/public-assets.mjs
 # decides which are public), never in bulk. Ignoring the directory means a
 # stray `git add -A` cannot push a picture pasted into an unpublished draft.

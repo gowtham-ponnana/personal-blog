@@ -627,9 +627,11 @@ function ShareModal({ slug, title, onClose }) {
         </div>
 
         <p className="text-xs text-gray-500 mb-4">
-          Creates a private link (unguessable token) that works even though the post isn't
-          published. It shows a “Private preview” banner and is not listed on the blog.
-          The link shares the SAVED version of the draft. It goes live after the next site deploy (~1 min).
+          Creates a private link that works even though the post isn't published. The
+          snapshot is encrypted before it is committed — the site's repo is public, but
+          only someone holding the link can read it. Shows a “Private preview” banner and
+          is never listed on the blog. The link shares the SAVED version of the draft, and
+          goes live after the next site deploy (~1 min).
         </p>
 
         <form onSubmit={handleGenerate} className="space-y-3">
