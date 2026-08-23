@@ -126,6 +126,11 @@ router.post('/', jwt.authenticateToken, async (req, res) => {
     const snapshot = {
       slug: post.slug,
       title: post.title,
+      // Whether `date` below is a real publish date. A draft's `date` is when
+      // it was created, and publishing re-stamps it (see routes/posts.js), so
+      // showing it on a preview would show a date the post will never carry.
+      // Recorded inside the ciphertext, so it reveals nothing publicly.
+      published: post.published === true,
       content: inlineImagesInHtml(post.content),
       excerpt: post.excerpt || '',
       coverImage: inlineImage(post.coverImage) || null,

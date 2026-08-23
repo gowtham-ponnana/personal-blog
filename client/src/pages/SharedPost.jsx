@@ -100,6 +100,13 @@ export default function SharedPost() {
     return sanitized
   }
 
+  const formatDate = (iso) =>
+    new Date(iso).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+
   const formatExpiry = (iso) => {
     const d = new Date(iso)
     return d.toLocaleString('en-US', {
@@ -169,13 +176,20 @@ export default function SharedPost() {
       {/* Header */}
       <header className="mb-12 text-center">
         <h1 className="font-serif text-4xl font-semibold mb-4">{post.title}</h1>
-        <time className="text-sm text-gray-500 block">
-          {new Date(post.date).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          })}
-        </time>
+        {post.published ? (
+          <time dateTime={post.date} className="text-sm text-gray-500 block">
+            {formatDate(post.date)}
+          </time>
+        ) : (
+          /* An unpublished draft has no publish date yet — its `date` is when
+             it was created, and publishing overwrites that. Show the snapshot's
+             vintage instead, which is the more useful fact here: a share link
+             is frozen at creation, so this tells the reader which version of
+             the draft they are looking at. */
+          <p className="text-sm text-gray-500 block">
+            Draft as of {formatDate(post.sharedAt || post.date)}
+          </p>
+        )}
       </header>
 
       {/* Cover image */}
