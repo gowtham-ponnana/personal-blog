@@ -8,7 +8,7 @@
 
 const ID_PREFIX = 'sharefile:v1:'
 const KEY_PREFIX = 'sharekey:v1:'
-const ENVELOPE_VERSION = 1
+const ENVELOPE_VERSION = 2
 
 async function sha256Bytes(text) {
   const digest = await crypto.subtle.digest(
@@ -38,6 +38,11 @@ export async function deriveFileId(token) {
 
 /**
  * Decrypt a committed envelope back into the snapshot object.
+ *
+ * Note the envelope's plaintext `exp` field is deliberately ignored: it exists
+ * for the unattended prune workflow, is unauthenticated, and must never be what
+ * decides whether a reader sees the post. The authoritative expiry is the
+ * `expiresAt` sealed inside the ciphertext, which GCM protects from edits.
  * Throws if the token is wrong or the blob was tampered with — GCM
  * authenticates, so a bad token fails loudly rather than yielding garbage.
  */

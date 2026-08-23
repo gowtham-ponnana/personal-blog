@@ -1,0 +1,52 @@
+name: Prune expired share links
+
+# A share link created with a 24h/3d/7d expiry has to stop working on time even
+# if you never open the blog again in that window. Nothing runs on your machine
+# to make that happen, so this does it here.
+#
+# Deleting the blob is what actually ends the link: the viewer also refuses to
+# render an expired snapshot, but a holder of the token could otherwise still
+# fetch and decrypt the file by hand. Removing it from the deploy is the real
+# revocation.
+#
+# The other rule — a link dies when its post goes live — needs the post's slug,
+# which only the publish flow knows, so it happens there instead.
+
+on:
+  schedule:
+    # Hourly. Expiry options are measured in days, so an hour of slack is
+    # immaterial, and the job pushes nothing on the (usual) quiet runs.
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write # to commit the deletions
+
+concurrency:
+  group: prune-shares
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Delete expired share blobs
+        run: node scripts/prune-expired-shares.mjs
+
+      - name: Commit deletions
+        run: |
+          if [[ -n "$(git status --porcelain content/shared)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add content/shared
+            git commit -m "chore(shares): prune expired share links"
+            git push
+          else
+            echo "Nothing expired — no commit."
+          fi

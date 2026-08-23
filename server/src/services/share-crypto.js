@@ -20,10 +20,20 @@ const crypto = require('crypto')
 //
 // Bumping the derivation prefixes invalidates every existing link, which is why
 // they carry a version tag.
+//
+// The envelope carries one plaintext field, `exp`, mirroring the expiry that is
+// also sealed inside the ciphertext. Unattended automation (the hourly prune
+// workflow) has no token and so cannot read the sealed copy, but it still has
+// to know when a blob is due for deletion. `exp` leaks only a timestamp about
+// an otherwise opaque blob — nothing about the post.
+//
+// The sealed copy stays authoritative for rendering: it is authenticated, so it
+// cannot be edited to extend a link's life, whereas `exp` is unauthenticated
+// and only ever decides when a file gets pruned.
 
 const ID_PREFIX = 'sharefile:v1:'
 const KEY_PREFIX = 'sharekey:v1:'
-const ENVELOPE_VERSION = 1
+const ENVELOPE_VERSION = 2
 
 function sha256(text) {
   return crypto.createHash('sha256').update(text, 'utf8').digest()
@@ -53,6 +63,8 @@ function encryptSnapshot(token, payload) {
 
   return {
     v: ENVELOPE_VERSION,
+    // Mirrors payload.expiresAt so the prune workflow can act without a token.
+    exp: payload.expiresAt || null,
     iv: iv.toString('base64'),
     ct: Buffer.concat([body, cipher.getAuthTag()]).toString('base64'),
   }

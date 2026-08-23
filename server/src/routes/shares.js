@@ -2,6 +2,7 @@ const express = require('express')
 const jwt = require('../utils/jwt')
 const { commitAndPush } = require('../services/git')
 const { deriveFileId, encryptSnapshot } = require('../services/share-crypto')
+const store = require('../services/share-store')
 const crypto = require('crypto')
 const path = require('path')
 const fs = require('fs')
@@ -19,11 +20,10 @@ const router = express.Router()
 // The token lives only in the URL fragment of the link. That leaves the admin
 // with nothing to list shares by, so the writer keeps content/shares-index.json
 // — gitignored local state, exactly like content/drafts.json — mapping tokens to
-// the files they unlock.
+// the files they unlock. File layout and revocation rules live in
+// services/share-store.js, which the publish flow shares.
 
 const REPO_ROOT = path.join(__dirname, '..', '..', '..')
-const SHARES_DIR = path.join(REPO_ROOT, 'content', 'shared')
-const INDEX_FILE = path.join(REPO_ROOT, 'content', 'shares-index.json')
 
 const IMAGE_MIME_TYPES = {
   '.jpg': 'image/jpeg',
@@ -69,24 +69,6 @@ function findPost(slug) {
     }
   }
   return null
-}
-
-// --- local share index (gitignored) ---
-
-function readIndex() {
-  if (!fs.existsSync(INDEX_FILE)) return []
-  try {
-    const parsed = JSON.parse(fs.readFileSync(INDEX_FILE, 'utf8'))
-    return Array.isArray(parsed) ? parsed : []
-  } catch (err) {
-    console.error('Error reading shares index:', err)
-    return []
-  }
-}
-
-function writeIndex(entries) {
-  fs.mkdirSync(path.dirname(INDEX_FILE), { recursive: true })
-  fs.writeFileSync(INDEX_FILE, JSON.stringify(entries, null, 2))
 }
 
 // --- image inlining ---
@@ -153,14 +135,9 @@ router.post('/', jwt.authenticateToken, async (req, res) => {
       expiresAt,
     }
 
-    fs.mkdirSync(SHARES_DIR, { recursive: true })
-    fs.writeFileSync(
-      path.join(SHARES_DIR, `${fileId}.json`),
-      JSON.stringify(encryptSnapshot(token, snapshot))
-    )
-
-    writeIndex([
-      ...readIndex().filter((entry) => entry.token !== token),
+    store.writeBlob(fileId, encryptSnapshot(token, snapshot))
+    store.writeIndex([
+      ...store.readIndex().filter((entry) => entry.token !== token),
       { token, fileId, slug: post.slug, title: post.title, sharedAt, expiresAt },
     ])
 
@@ -178,10 +155,13 @@ router.post('/', jwt.authenticateToken, async (req, res) => {
 // GET /api/shares?slug=... — list active (non-expired) share links
 router.get('/', jwt.authenticateToken, (req, res) => {
   try {
+    // Sweep anything already expired so the list never offers a dead link.
+    store.pruneExpired()
+
     const now = Date.now()
     const slugFilter = req.query.slug
 
-    const shares = readIndex()
+    const shares = store.readIndex()
       .filter((entry) => (slugFilter ? entry.slug === slugFilter : true))
       .filter((entry) => !entry.expiresAt || new Date(entry.expiresAt).getTime() >= now)
       .sort((a, b) => new Date(b.sharedAt) - new Date(a.sharedAt))
@@ -200,20 +180,18 @@ router.delete('/:token', jwt.authenticateToken, async (req, res) => {
     const { token } = req.params
     if (!validateToken(token)) return res.status(404).json({ message: 'Not found' })
 
-    const entries = readIndex()
-    const entry = entries.find((candidate) => candidate.token === token)
+    const entry = store.readIndex().find((candidate) => candidate.token === token)
 
     // Fall back to deriving the filename: a link can still be revoked from its
     // token alone if the local index was lost or rebuilt.
     const fileId = entry ? entry.fileId : deriveFileId(token)
-    const blob = path.join(SHARES_DIR, `${fileId}.json`)
 
-    if (!entry && !fs.existsSync(blob)) {
+    if (!entry && !fs.existsSync(store.blobPath(fileId))) {
       return res.status(404).json({ message: 'Share link not found' })
     }
 
-    if (fs.existsSync(blob)) fs.unlinkSync(blob)
-    writeIndex(entries.filter((candidate) => candidate.token !== token))
+    store.deleteBlob(fileId)
+    store.writeIndex(store.readIndex().filter((candidate) => candidate.token !== token))
 
     await commitAndPush(`Revoke share: ${entry ? entry.slug : fileId}`)
 

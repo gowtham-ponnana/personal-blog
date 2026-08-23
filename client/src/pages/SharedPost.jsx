@@ -3,6 +3,7 @@ import { useParams, useLocation, Link } from 'react-router-dom'
 import DOMPurify from 'dompurify'
 import Prism from 'prismjs'
 import { deriveFileId, decryptSnapshot } from '../lib/share-crypto'
+import { fetchPosts } from '../api/dataSource'
 
 // Renders a private share link: /s/#<token>
 //
@@ -24,10 +25,24 @@ export default function SharedPost() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [expired, setExpired] = useState(false)
+  // Set when the previewed post has since been published: the link is spent,
+  // but there is now a real page to send the reader to.
+  const [publishedSlug, setPublishedSlug] = useState('')
 
   useEffect(() => {
     loadSharedPost()
   }, [token])
+
+  // A failure here must not gate the preview — fall back to showing it.
+  const isPublished = async (slug) => {
+    if (!slug) return false
+    try {
+      return (await fetchPosts()).some((entry) => entry.slug === slug)
+    } catch (err) {
+      console.error('Could not check published posts:', err)
+      return false
+    }
+  }
 
   const loadSharedPost = async () => {
     if (!token) {
@@ -50,8 +65,16 @@ export default function SharedPost() {
       // AES-GCM authenticates, so tampering and bad keys both throw.
       const data = await decryptSnapshot(token, await res.json())
 
+      // A share link dies on whichever comes first: its deadline, or the post
+      // going live. Both are enforced by deleting the blob — at publish time and
+      // by the hourly prune job — so reaching either branch here means the
+      // deploy that removes it has not landed yet. Refuse to render regardless.
       if (data.expiresAt && new Date(data.expiresAt).getTime() < Date.now()) {
         setExpired(true)
+        return
+      }
+      if (await isPublished(data.slug)) {
+        setPublishedSlug(data.slug)
         return
       }
       setPost(data)
@@ -92,6 +115,23 @@ export default function SharedPost() {
     return (
       <div className="max-w-3xl mx-auto text-center py-12">
         <p className="text-gray-500">Loading shared post...</p>
+      </div>
+    )
+  }
+
+  if (publishedSlug) {
+    return (
+      <div className="max-w-3xl mx-auto text-center py-16">
+        <p className="text-4xl mb-4">🎉</p>
+        <p className="text-gray-500 mb-4">
+          This post is published now, so the private preview link has ended.
+        </p>
+        <Link
+          to={`/post/${publishedSlug}`}
+          className="text-blue-600 hover:text-blue-800 transition-colors"
+        >
+          Read it on the blog →
+        </Link>
       </div>
     )
   }

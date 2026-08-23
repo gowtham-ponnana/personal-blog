@@ -631,7 +631,8 @@ function ShareModal({ slug, title, onClose }) {
           snapshot is encrypted before it is committed — the site's repo is public, but
           only someone holding the link can read it. Shows a “Private preview” banner and
           is never listed on the blog. The link shares the SAVED version of the draft, and
-          goes live after the next site deploy (~1 min).
+          goes live after the next site deploy (~1 min). It stops working when the expiry
+          below runs out — or as soon as you publish the post, whichever comes first.
         </p>
 
         <form onSubmit={handleGenerate} className="space-y-3">

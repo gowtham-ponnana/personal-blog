@@ -5,6 +5,7 @@ const path = require('path')
 const fs = require('fs')
 const sanitizeHtml = require('sanitize-html')
 const { commitAndPush } = require('../services/git')
+const { revokeSharesForSlugs } = require('../services/share-store')
 
 // Sanitize HTML input to prevent XSS while keeping rich formatting
 function sanitizeHTML(html) {
@@ -247,6 +248,11 @@ router.post('/', jwt.authenticateToken, async (req, res) => {
       publishedPosts.push(newPost)
       savePublishedPosts(publishedPosts)
 
+      // A share link is a preview of something unpublished; going live ends it.
+      // Same push carries the deletion, so the link dies with the deploy that
+      // makes the post public.
+      revokeSharesForSlugs([newPost.slug])
+
       try {
         await commitAndPush(`Publish: ${newPost.title}`)
       } catch (gitErr) {
@@ -344,6 +350,13 @@ router.put('/:slug', jwt.authenticateToken, async (req, res) => {
         saveDrafts(drafts)
         savePublishedPosts(publishedPosts)
         commitMessage = `Publish: ${updated.title}`
+      }
+
+      // Whichever branch ran, if the post is live now its previews must go.
+      // Calling this on every publish also cleans up links that an earlier
+      // publish should have revoked but did not.
+      if (willBePublished) {
+        revokeSharesForSlugs([updated.slug])
       }
 
       if (commitMessage) {
