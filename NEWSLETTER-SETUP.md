@@ -54,6 +54,32 @@ publishing never fails on a missing secret. Adding the secret is what switches
 it on — no code change. A key present with any other value missing fails loudly
 instead, since that means a half-finished activation rather than an unused one.
 
+## Sending by hand (no API token, no plan requirement)
+
+You do not need any of the automation to email subscribers. MailerLite's own
+dashboard can do it: Campaigns → Create, pick the "Newsletter" group, write or
+paste the content, send. The only prerequisite is a verified sender.
+
+To avoid rebuilding the layout each time, render the same email this repo would
+have sent and paste it in:
+
+```bash
+node scripts/send-newsletter.mjs --render                 # newest unsent post
+node scripts/send-newsletter.mjs --render <slug>          # a specific post
+```
+
+It prints the subject line and writes the HTML to `.tmp/` (gitignored). Paste
+that into a MailerLite campaign's custom-HTML block and send it yourself. No
+token, no secrets, and none of the plan limits that apply to the API.
+
+Then record it, or automation will email that post again the day it is
+switched on:
+
+```bash
+node scripts/send-newsletter.mjs --mark-sent <slug>
+git add content/newsletter-sent.json && git commit -m "chore(newsletter): sent <slug>"
+```
+
 ## Testing the send
 You're the only subscriber at first, so it's self-contained. Run locally against
 your account (temporarily remove the seed slug from `content/newsletter-sent.json`

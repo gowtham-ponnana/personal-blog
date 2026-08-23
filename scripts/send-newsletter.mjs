@@ -8,6 +8,16 @@
 //
 // No always-on backend is involved — this is ephemeral CI triggered by a push.
 //
+// It also supports sending by hand, which needs no API token and no paid plan:
+//
+//   node scripts/send-newsletter.mjs --render [slug]
+//       Writes the email HTML for a post to .tmp/ and prints the subject line.
+//       Paste that into MailerLite's own campaign editor and send it yourself.
+//
+//   node scripts/send-newsletter.mjs --mark-sent <slug>
+//       Records a slug in the ledger. Run this after sending by hand, or
+//       automation will email that post again the day it is switched on.
+//
 // Required env:
 //   MAILERLITE_API_KEY    - API token (GitHub secret)
 //   MAILERLITE_GROUP_ID   - the subscriber group the signup form feeds into
@@ -16,7 +26,7 @@
 // Optional env:
 //   MAILERLITE_FROM_NAME  - defaults to "Gowtham's Blog"
 
-import { readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 
 const API = 'https://connect.mailerlite.com/api'
 
@@ -28,10 +38,30 @@ const {
   SITE_URL,
 } = process.env
 
+const argv = process.argv.slice(2)
+const wants = (name) => argv.includes(name)
+const valueAfter = (name) => {
+  const i = argv.indexOf(name)
+  const v = i === -1 ? undefined : argv[i + 1]
+  return v && !v.startsWith('--') ? v : undefined
+}
+
+const RENDER = wants('--render')
+const RENDER_SLUG = valueAfter('--render')
+const MARK_SENT = valueAfter('--mark-sent')
+
+// Both hand-send helpers stay entirely local: no network, no token, no plan
+// requirement. Only the automated path needs credentials.
+const OFFLINE = RENDER || Boolean(MARK_SENT)
+
+// The rendered "Read the post" link still needs a base URL; in offline mode
+// there is no CI to supply one, so fall back to the live blog.
+const BASE_URL = SITE_URL || 'https://gowthamponnana.com'
+
 // No API key means sending simply is not switched on yet. Exit successfully so
 // the workflow can live in the repo, ready for the moment the secret is added,
 // without turning every publish into a failed run and a failure email.
-if (!MAILERLITE_API_KEY) {
+if (!OFFLINE && !MAILERLITE_API_KEY) {
   console.log(
     'MAILERLITE_API_KEY is not set — newsletter sending is not activated. ' +
       'Add the secret (see NEWSLETTER-SETUP.md) to switch it on. Skipping.'
@@ -41,8 +71,9 @@ if (!MAILERLITE_API_KEY) {
 
 // A key WITH something else missing is a different situation: someone tried to
 // activate it and got it half-right. That should fail loudly.
-const missing = ['MAILERLITE_GROUP_ID', 'MAILERLITE_FROM_EMAIL', 'SITE_URL']
-  .filter((k) => !process.env[k])
+const missing = OFFLINE
+  ? []
+  : ['MAILERLITE_GROUP_ID', 'MAILERLITE_FROM_EMAIL', 'SITE_URL'].filter((k) => !process.env[k])
 if (missing.length) {
   console.error(
     `MAILERLITE_API_KEY is set but these are missing: ${missing.join(', ')}. ` +
@@ -82,7 +113,7 @@ async function ml(path, body) {
 }
 
 function emailHtml(post) {
-  const base = SITE_URL.replace(/\/$/, '')
+  const base = BASE_URL.replace(/\/$/, '')
   const url = `${base}/post/${post.slug}`
   const date = new Date(post.date).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -116,6 +147,54 @@ async function main() {
   const sent = new Set(ledger)
 
   const pending = posts.filter((p) => p.published && p.slug && !sent.has(p.slug))
+
+  // --mark-sent <slug>: record a hand-sent post so automation skips it.
+  if (MARK_SENT) {
+    const post = posts.find((p) => p.slug === MARK_SENT)
+    if (!post) {
+      console.error(`No published post with slug "${MARK_SENT}".`)
+      process.exit(1)
+    }
+    if (sent.has(MARK_SENT)) {
+      console.log(`"${MARK_SENT}" is already in the ledger — nothing to do.`)
+      return
+    }
+    sent.add(MARK_SENT)
+    await writeFile(LEDGER_PATH, JSON.stringify([...sent], null, 2) + '\n')
+    console.log(`Recorded "${MARK_SENT}" as sent. Commit ${LEDGER_PATH} to make it stick.`)
+    return
+  }
+
+  // --render [slug]: write the email HTML for a post so it can be pasted into
+  // MailerLite's own editor. Deliberately leaves the ledger alone — nothing has
+  // actually been sent yet at this point.
+  if (RENDER) {
+    const post = RENDER_SLUG
+      ? posts.find((p) => p.slug === RENDER_SLUG)
+      : pending[pending.length - 1] || posts[posts.length - 1]
+
+    if (!post) {
+      console.error(
+        RENDER_SLUG ? `No post with slug "${RENDER_SLUG}".` : 'No published posts to render.'
+      )
+      process.exit(1)
+    }
+
+    await mkdir('.tmp', { recursive: true })
+    const out = `.tmp/newsletter-${post.slug}.html`
+    await writeFile(out, emailHtml(post))
+
+    console.log(`Subject : ${post.title}`)
+    console.log(`From    : ${MAILERLITE_FROM_NAME}`)
+    console.log(`HTML    : ${out}`)
+    console.log('')
+    console.log('Paste that HTML into a MailerLite campaign (custom HTML block) and send.')
+    if (!sent.has(post.slug)) {
+      console.log(`Afterwards: node scripts/send-newsletter.mjs --mark-sent ${post.slug}`)
+      console.log('  (otherwise automation will email it again once switched on)')
+    }
+    return
+  }
   if (pending.length === 0) {
     console.log('No newly-published posts to send.')
     return
